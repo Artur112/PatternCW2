@@ -48,11 +48,7 @@ function scores = Rankscores(data_compare2,data,data_compare2idx, dataidx, label
         end
         scores(1,b) = count/length(dataidx)*100; %Find percentage of query image results that did contain correct result
         b = b + 1;
-    end
-    
-%----------------------------------Getting mAP score from the nearest neighbour results
-   
-        
+    end        
 
 end
 
