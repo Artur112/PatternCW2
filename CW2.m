@@ -151,7 +151,7 @@
     gpuDevice(1); %Run code on the GPU since its faster
     
     %Learning Features now on entire training set
-   % [U_PCA, diffimg, mean_feature] = PCA(train_features');
+   %[U_PCA, diffimg, mean_feature] = PCA(train_features');
     %train_PCA = U_PCA(:,1:50)'*diffimg;
     tic;
     [L,Det,matrices] = lmnnCG(train_features',labels(train_idx,:)',4,iterations,'maxiter',500,'GPU',true);  
@@ -174,14 +174,13 @@
     end
 
     matricesPCA{end + 1} = L; %Found transformation matrices A saved at different iterations to find the optimal one
-%%
+
     a = 1;        
     for n = 1:length(matricesPCA)  
         scoresLMNN(a,:) = Rankscores(gallery_kPCA, query_kPCA, gallery_idx, query_idx, labels, camId,nearestSPD([matricesPCA{n}]));
         a = a + 1;
     end
        
-    %%
 %--------------------------------------------------------------------------Running LMNN on gaussian kernel PCA data
 
     [train_kPCA, U_kPCA, D_kPCA] = kPCA(train_features, 50 ,'gaussian', 40);
