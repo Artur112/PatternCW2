@@ -9,8 +9,11 @@
 
 %% Creating Validation set from training set
     
-    numlabels = 100;
-    %Validation set consists of 100 randomly selected individuals for whom we take all of their pics
+    numlabels = 100; %Set this to define how many labels are in validation set
+    
+    %Select that number of labels for validation by randomly sampling from
+    %the labels in the training set:
+    
     validationlabels = datasample(unique(labels(train_idx)),numlabels,'Replace',false);
     training_idx = train_idx; %Indices in features for training
     validationQuery_idx = []; %Indices in features for validation query
@@ -29,7 +32,7 @@
             validationQuery_idx = [validationQuery_idx; temp(8:end)];
         end
     end
-    training_idx(indx) = [];
+    training_idx(indx) = []; %Remove all the images with the validation labels from the training set
     clear temp; clear n; clear validationlabels;
     
     training_features = features(training_idx,:);
@@ -72,16 +75,13 @@
     end
     clear q; clear a; clear img; clear rank; clear cluster; clear indices; clear clusterlabels;
     scoreskmeans = sum(scoreskmeans,1)/length(query_idx)*100;
-  
-    plot(1:1:5, scoreskmeans);
-    ylabel('Rank Score / %');
-    xlabel('Rank');
-    
 
 %% k-NN validation query vs validation gallery to decide M_PCA hyperparameter value
 
-    [U_PCA, diffimg, mean_feature] = PCA(training_features');
+    [U_PCA, diffimg, mean_feature] = PCA(training_features'); %Applying PCA on training features
 
+    %Find the scores and time taken to perform computation for varying
+    %values of eigenvectors used (dimensionality):
     for M_PCA = 10:10:200
         validationQuery_PCA = U_PCA(:,1:M_PCA)'*(validationQuery_features' - mean_feature);
         validationGallery_PCA = U_PCA(:,1:M_PCA)'*(validationGallery_features' - mean_feature);
@@ -112,6 +112,7 @@
     
 %% k-NN validation query vs validation gallery to decide sigma hyperparameter value for Gaussian Kernel
 
+    %Get the results for different values of the kernel PCA sigma parameter:
     M_PCA = 50;
     for para = 5:5:50
         [train_kPCA, U_kPCA, D_kPCA] = kPCA(training_features,M_PCA,'gaussian',para);
@@ -125,6 +126,7 @@
 
     % para = 40 decided upon, so we'll use that
 
+    %Generate the query and gallery features in the new transformed kernel space:
     [train_kPCA, U_kPCA, D_kPCA] = kPCA(training_features,M_PCA,'gaussian', 40);
     query_kPCA = query_features*diffimg*U_kPCA(:,1:M_PCA)*diag(D_kPCA(1:M_PCA))^(-1/2);
     gallery_kPCA = gallery_features*diffimg*U_kPCA(:,1:M_PCA)*diag(D_kPCA(1:M_PCA))^(-1/2);
@@ -147,14 +149,15 @@
     
     
 %--------------------------------------------------------------------------Running LMNN on PCA data
-    iterations = 5:5:495; %Iterations to save the learnt matrices at
-    gpuDevice(1); %Run code on the GPU since its faster
+    iterations = 5:5:495; %User can specigy the iterations to save the learnt matrices at
+    gpuDevice(1); %Run code on the GPU since its faster, if the user does not have compatible gpu then this line should be 
+    %ommitted asd well as the 'GPU',true input into the LMNN function
     
     %Learning Features now on entire training set
-   %[U_PCA, diffimg, mean_feature] = PCA(train_features');
-    %train_PCA = U_PCA(:,1:50)'*diffimg;
+    [U_PCA, diffimg, mean_feature] = PCA(train_features');
+    train_PCA = U_PCA(:,1:50)'*diffimg;
     tic;
-    [L,Det,matrices] = lmnnCG(train_features',labels(train_idx,:)',4,iterations,'maxiter',500,'GPU',true);  
+    [L,Det,matrices] = lmnnCG(train_PCA,labels(train_idx,:)',4,iterations,'maxiter',500,'GPU',true);  
     timetaken = toc;
     for n = 1:length(matrices)
         Ltemp1 = [matrices{n}];
@@ -175,6 +178,7 @@
 
     matricesPCA{end + 1} = L; %Found transformation matrices A saved at different iterations to find the optimal one
 
+    %Get the scores with the tranformation matrices that were learnt along the way:
     a = 1;        
     for n = 1:length(matricesPCA)  
         scoresLMNN(a,:) = Rankscores(gallery_kPCA, query_kPCA, gallery_idx, query_idx, labels, camId,nearestSPD([matricesPCA{n}]));
@@ -214,7 +218,7 @@
         a = a + 1;
     end
 
-    %Getting scores for ranks 1, 5 and 10 only. 
+    %Getting scores for ranks 1, 5 and 10 only. (The rankscore function gets scored for the first 30)
     scoresLMNNpcaFINAL = scoresLMNNpca(:,[1,5,10]);
     scoresLMNNkpcaFINAL = scoresLMNNkpca(:,[1,5,10]);
 
@@ -302,7 +306,7 @@ zlabel('u3');
 qur = (features(query_idx,:));
 gal = (features(gallery_idx,:));
 [scores,knearest] = Rankscores(gal, qur, gallery_idx, query_idx,labels, camId, 0); %NOTE modified rankscores funciton
-%temporarily to give kNN results as an outpiut
+%temporarily to give kNN results as an output
 %
     person2test = [3,25,342]; %query images to show results for
     row = 1;
